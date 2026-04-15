@@ -112,7 +112,31 @@ claude
 
 ## Шаг 4.1 — database/db.py: таблица library_content
 
-<!-- ЗАПОЛНЯЕТСЯ В TASK 2 -->
+Первый файл кода — база данных.
+
+Смотри как работает субагент-driven development:
+Claude Code запускает свежий агент на задачу "создай db.py",
+тот пишет тест, запускает, реализует, коммитит.
+Никакого накопленного контекста — чистый старт на каждую задачу.
+
+Таблица `library_content`:
+
+```sql
+CREATE TABLE IF NOT EXISTS library_content (
+    id              SERIAL PRIMARY KEY,
+    source_url      TEXT NOT NULL,
+    platform        VARCHAR(20) NOT NULL,
+    content_type    VARCHAR(20) NOT NULL,
+    transcript      TEXT,
+    status          VARCHAR(20) NOT NULL DEFAULT 'analyzed',
+    created_at      TIMESTAMP NOT NULL DEFAULT NOW()
+);
+```
+
+Три функции: `init_db()`, `insert_content()`, `get_content_by_id()`.
+Всё. Больше ничего. YAGNI — You Aren't Gonna Need It.
+
+Если застрял — скриншот в Claude Code.
 
 ---
 
