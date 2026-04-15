@@ -214,13 +214,55 @@ yt-dlp --write-auto-sub --sub-lang ru,en --skip-download \
 
 ## Шаг 4.5 — bot.py: сборка и запуск
 
-<!-- ЗАПОЛНЯЕТСЯ В TASK 6 -->
+`bot.py` — точка входа. Три строки логики:
+
+```python
+init_db()                                              # создаем таблицу если нет
+app = Application.builder().token(BOT_TOKEN).build()   # создаем бота
+app.add_handler(MessageHandler(..., handle_message))   # регистрируем хендлер
+app.run_polling()                                      # запускаем
+```
+
+Запустить локально (нужны все переменные из `.env`):
+
+```bash
+cd content-bot
+cp .env.example .env
+# Заполни .env своими значениями
+python3 bot.py
+```
+
+Должно написать в консоли: `Bot started — polling`
+Открой Telegram → найди своего бота → кинь ссылку → должен ответить `✅ Сохранено #1`
+
+Если застрял — скриншот в Claude Code.
 
 ---
 
 ## Шаг 5 — Деплой на Render
 
-<!-- ЗАПОЛНЯЕТСЯ В TASK 6 -->
+Последний шаг — запустить бота в облаке.
+
+**render.com → New → Web Service**
+
+1. Connect Repository → выбери `content-bot`
+2. Build Command: `pip install -r requirements.txt`
+3. Start Command: `python3 bot.py`
+
+**Environment Variables** — добавляешь все переменные из `.env.example`:
+
+```
+BOT_TOKEN          = токен из BotFather (Шаг 2)
+DATABASE_URL       = External URL из Render PostgreSQL (Шаг 2)
+GOOGLE_VISION_API_KEY = ключ из Google Cloud (Шаг 2)
+LIBRARY_CHANNEL_ID = ID приватного канала
+```
+
+**Deploy** → ждешь зеленый статус.
+
+Проверка: зайди в Telegram → кинь боту TikTok-ссылку → должен ответить `✅ Сохранено #1`
+
+Если застрял — скриншот в Claude Code.
 
 ---
 
