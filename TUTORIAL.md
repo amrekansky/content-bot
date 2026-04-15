@@ -188,7 +188,27 @@ yt-dlp --write-auto-sub --sub-lang ru,en --skip-download \
 
 ## Шаг 4.4 — handlers/content_ingest.py: входящие сообщения
 
-<!-- ЗАПОЛНЯЕТСЯ В TASK 5 -->
+`handlers/content_ingest.py` — один хендлер на все входящие сообщения:
+
+- Ссылка → `process_url()` → сохраняем в DB → карточка в архив-канал
+- Фото → `extract_text_from_image()` → сохраняем
+- PDF → `extract_text_from_pdf()` → сохраняем
+
+Карточка в архив-канал выглядит так:
+
+```
+📎 Youtube | video
+🔗 https://youtu.be/...
+
+📝 Первые 200 символов транскрипта...
+
+#42
+```
+
+`LIBRARY_CHANNEL_ID` — ID приватного канала куда форвардятся все карточки.
+Берешь его через @userinfobot или настройки канала.
+
+Если застрял — скриншот в Claude Code.
 
 ---
 
