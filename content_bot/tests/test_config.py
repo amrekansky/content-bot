@@ -1,4 +1,3 @@
-import os
 import pytest
 
 
@@ -26,5 +25,5 @@ def test_config_raises_on_missing_bot_token(monkeypatch):
 
     import importlib
     import content_bot.config as config_module
-    with pytest.raises((KeyError, ValueError)):
+    with pytest.raises(ValueError):
         importlib.reload(config_module)
