@@ -142,7 +142,24 @@ CREATE TABLE IF NOT EXISTS library_content (
 
 ## Шаг 4.2 — services/vision.py: OCR и PDF
 
-<!-- ЗАПОЛНЯЕТСЯ В TASK 3 -->
+`services/vision.py` — две функции:
+
+- `extract_text_from_image(bytes)` → строка текста через Google Vision API
+- `extract_text_from_pdf(bytes)` → текст всех страниц через pdfplumber
+
+Никакого сохранения файлов. Принял байты — вернул текст. Чисто.
+
+```python
+from content_bot.services.vision import extract_text_from_image, extract_text_from_pdf
+
+text = extract_text_from_image(image_bytes)
+text = extract_text_from_pdf(pdf_bytes)
+```
+
+Google Vision API подключается через API-ключ из переменной `GOOGLE_VISION_API_KEY`.
+Ключ взял из шага 2 — тот же что в основном боте.
+
+Если застрял — скриншот в Claude Code.
 
 ---
 
