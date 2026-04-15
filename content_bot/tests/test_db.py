@@ -68,7 +68,7 @@ def test_insert_without_transcript(db_url):
     assert row["status"] == "analyzed"
 
 
-def test_get_nonexistent_returns_none():
+def test_get_nonexistent_returns_none(db_url):
     init_db()
     row = get_content_by_id(999999999)
     assert row is None
