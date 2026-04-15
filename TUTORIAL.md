@@ -165,7 +165,24 @@ Google Vision API подключается через API-ключ из пере
 
 ## Шаг 4.3 — services/content_processor.py: yt-dlp
 
-<!-- ЗАПОЛНЯЕТСЯ В TASK 4 -->
+`services/content_processor.py` — три функции:
+
+- `detect_url_type(url)` → `{platform, content_type}` или `None`
+- `parse_vtt_text(vtt_content)` → чистый текст без таймкодов
+- `process_url(url)` → `ProcessedContent` с транскриптом
+
+Никакого LLM на этом этапе. Бот — механический сборщик.
+yt-dlp скачивает субтитры (не аудио, только `.vtt` файл), функция чистит таймкоды.
+
+```bash
+# Что делает yt-dlp под капотом:
+yt-dlp --write-auto-sub --sub-lang ru,en --skip-download \
+  --output /tmp/%(id)s https://youtube.com/watch?v=...
+```
+
+Временный файл субтитров удаляется сразу после чтения. Никакого хранения медиа.
+
+Если застрял — скриншот в Claude Code.
 
 ---
 
