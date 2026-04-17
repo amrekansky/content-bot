@@ -181,15 +181,26 @@ def _extract_carousel_text(url: str) -> str | None:
         if WEBSHARE_PROXY_URL:
             cmd += ["--proxy", WEBSHARE_PROXY_URL]
         cmd.append(url)
-        subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        all_files = os.listdir(tmp_dir)
+        logger.info("carousel: yt-dlp rc=%d files=%s stderr=%s",
+                    result.returncode, all_files, result.stderr[:500])
 
         image_files = []
         for pattern in ("*.jpg", "*.jpeg", "*.png", "*.webp"):
             image_files.extend(glob.glob(os.path.join(tmp_dir, pattern)))
-        image_files = sorted(image_files, key=lambda p: int(os.path.splitext(os.path.basename(p))[0]))
+
+        def _sort_key(p):
+            stem = os.path.splitext(os.path.basename(p))[0]
+            try:
+                return int(stem)
+            except ValueError:
+                return stem
+
+        image_files = sorted(image_files, key=_sort_key)
 
         if not image_files:
-            logger.info("carousel: no images downloaded for %s", url)
+            logger.info("carousel: no images in %s", all_files)
             return None
 
         slides = []
