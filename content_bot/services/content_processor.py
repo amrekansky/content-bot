@@ -1,9 +1,12 @@
 import glob
+import logging
 import os
 import re
 import subprocess
 import tempfile
 from dataclasses import dataclass
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -86,6 +89,27 @@ def _extract_subtitles(url: str, tmp_dir: str) -> str | None:
                 pass
 
 
+def _extract_youtube_transcript(url: str) -> str | None:
+    """Try youtube-transcript-api first, fall back to yt-dlp."""
+    try:
+        from youtube_transcript_api import YouTubeTranscriptApi
+        import re as _re
+        video_id_match = _re.search(r"(?:v=|youtu\.be/)([A-Za-z0-9_-]{11})", url)
+        if not video_id_match:
+            return None
+        video_id = video_id_match.group(1)
+        transcript_list = YouTubeTranscriptApi.get_transcript(
+            video_id, languages=["ru", "en"]
+        )
+        text = " ".join(entry["text"] for entry in transcript_list)
+        return text.strip() or None
+    except Exception as e:
+        logger.info("youtube-transcript-api failed (%s), trying yt-dlp", e)
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        return _extract_subtitles(url, tmp_dir)
+
+
 def process_url(url: str) -> ProcessedContent | None:
     """Process a URL: detect type, extract transcript. Returns None for unknown URLs."""
     url_info = detect_url_type(url)
@@ -95,8 +119,11 @@ def process_url(url: str) -> ProcessedContent | None:
     platform = url_info["platform"]
     content_type = url_info["content_type"]
 
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        transcript = _extract_subtitles(url, tmp_dir)
+    if platform == "youtube":
+        transcript = _extract_youtube_transcript(url)
+    else:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            transcript = _extract_subtitles(url, tmp_dir)
 
     return ProcessedContent(
         platform=platform,
