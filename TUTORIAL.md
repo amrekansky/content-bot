@@ -172,7 +172,15 @@ Google Vision API подключается через API-ключ из пере
 - `process_url(url)` → `ProcessedContent` с транскриптом
 
 Никакого LLM на этом этапе. Бот — механический сборщик.
-yt-dlp скачивает субтитры (не аудио, только `.vtt` файл), функция чистит таймкоды.
+Транскрипт извлекается в три попытки:
+
+1. **youtube-transcript-api** — самый быстрый путь для YouTube, без скачивания
+2. **Groq Whisper** — скачивает аудио через yt-dlp (mp3, ~64kbps), отправляет в Whisper API
+3. **yt-dlp субтитры** — последний резерв, `.vtt` файл без аудио
+
+Для TikTok и Instagram: сначала субтитры через yt-dlp, потом Groq Whisper.
+Все yt-dlp вызовы идут через residential proxy (WEBSHARE_PROXY_URL) —
+без этого Render'овский datacenter IP блокируется YouTube и TikTok.
 
 ```bash
 # Что делает yt-dlp под капотом:
@@ -239,11 +247,56 @@ python3 bot.py
 
 ---
 
+## История: три фикса и один диагноз
+
+Бот задеплоился. Карточки сохраняются. Всё выглядит хорошо — но транскрипта нет.
+Поле всегда пустое. Ни у YouTube, ни у TikTok.
+
+**Фикс 1.** `youtube-transcript-api` — в версии 0.7+ убрали метод `get_transcript` у класса.
+Нашел, переписал на инстанс-метод. Задеплоил. Транскрипта нет.
+
+**Фикс 2.** Добавил Groq Whisper как fallback: скачиваем аудио через yt-dlp, отправляем в Whisper API.
+Задеплоил. Транскрипта нет. При этом логи показывают 6 секунд на обработку 34-минутного видео.
+Что-то не так на уровне глубже кода.
+
+**Фикс 3.** Добавил Groq Whisper fallback для TikTok и Instagram тоже — вдруг проблема в ветке.
+Задеплоил. Транскрипта нет.
+
+Три правильных фикса. Ни один не работает.
+
+---
+
+Вместо Фикса 4 — включил режим мудреца:
+
+```bash
+/brainstorming решить проблему транскрипции в content-bot
+```
+
+Claude не предложил следующий патч. Задал вопрос: GROQ_API_KEY добавлен на Render?
+Да, добавлен. Тогда почему 6 секунд на 34-минутное видео?
+
+Потому что yt-dlp не скачивает аудио. Он падает почти моментально с ошибкой.
+YouTube и TikTok детектируют datacenter IP и блокируют на уровне сети.
+Render — shared datacenter. Все три фикса атаковали не ту проблему.
+
+**Решение:** residential proxy. Один env var (`WEBSHARE_PROXY_URL`), все платформы фиксируются сразу.
+
+---
+
+Это и есть точка применения режима мудреца — не когда застрял после первой попытки,
+а когда три правильных фикса не работают и ты готов писать четвертый.
+Именно тогда нужно выйти из режима исполнения и начать диагностировать.
+
+---
+
 ## Шаг 5 — Деплой на Render
 
 Последний шаг — запустить бота в облаке.
 
-**render.com → New → Web Service**
+**render.com → New → Background Worker**
+
+> Важно: выбирай именно **Background Worker**, не Web Service.
+> Web Service ждет HTTP-сервер на порту — polling-бот его не запускает, и Render убивает процесс.
 
 1. Connect Repository → выбери `content-bot`
 2. Build Command: `pip install -r requirements.txt`
@@ -252,10 +305,12 @@ python3 bot.py
 **Environment Variables** — добавляешь все переменные из `.env.example`:
 
 ```
-BOT_TOKEN          = токен из BotFather (Шаг 2)
-DATABASE_URL       = External URL из Render PostgreSQL (Шаг 2)
+BOT_TOKEN             = токен из BotFather (Шаг 2)
+DATABASE_URL          = External URL из Render PostgreSQL (Шаг 2)
 GOOGLE_VISION_API_KEY = ключ из Google Cloud (Шаг 2)
-LIBRARY_CHANNEL_ID = ID приватного канала
+LIBRARY_CHANNEL_ID    = ID приватного канала
+GROQ_API_KEY          = ключ из console.groq.com (бесплатно)
+WEBSHARE_PROXY_URL    = rotating endpoint из webshare.io (бесплатный тир)
 ```
 
 **Deploy** → ждешь зеленый статус.
