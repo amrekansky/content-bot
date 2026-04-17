@@ -5,6 +5,7 @@ from content_bot.services.content_processor import (
     parse_vtt_text,
     process_url,
     ProcessedContent,
+    _extract_carousel_text,
 )
 
 
@@ -173,3 +174,59 @@ def test_extract_subtitles_no_proxy_when_not_set():
 
         cmd = mock_run.call_args[0][0]
         assert "--proxy" not in cmd
+
+
+# --- _extract_carousel_text ---
+
+def test_extract_carousel_text_structures_slides():
+    """Multiple downloaded images produce [Слайд N] markers in order."""
+    with patch("content_bot.services.content_processor.subprocess.run") as mock_run, \
+         patch("content_bot.services.content_processor.glob.glob") as mock_glob, \
+         patch("content_bot.services.vision.extract_text_from_image") as mock_ocr, \
+         patch("content_bot.config.WEBSHARE_PROXY_URL", None):
+
+        mock_run.return_value = MagicMock(returncode=0)
+        # glob called 4 times (jpg, jpeg, png, webp)
+        mock_glob.side_effect = [
+            ["/tmp/fake/1.jpg", "/tmp/fake/2.jpg"],
+            [],
+            [],
+            [],
+        ]
+        mock_ocr.side_effect = ["Текст первого слайда", "Текст второго слайда"]
+
+        result = _extract_carousel_text("https://www.instagram.com/p/abc123/")
+
+    assert result is not None
+    assert "[Слайд 1]\nТекст первого слайда" in result
+    assert "[Слайд 2]\nТекст второго слайда" in result
+
+
+def test_extract_carousel_text_returns_none_when_no_images():
+    """Returns None if yt-dlp downloads nothing."""
+    with patch("content_bot.services.content_processor.subprocess.run") as mock_run, \
+         patch("content_bot.services.content_processor.glob.glob") as mock_glob, \
+         patch("content_bot.config.WEBSHARE_PROXY_URL", None):
+
+        mock_run.return_value = MagicMock(returncode=1)
+        mock_glob.return_value = []
+
+        result = _extract_carousel_text("https://www.instagram.com/p/abc123/")
+
+    assert result is None
+
+
+def test_extract_carousel_text_returns_none_when_all_ocr_empty():
+    """Returns None if all images have no text."""
+    with patch("content_bot.services.content_processor.subprocess.run") as mock_run, \
+         patch("content_bot.services.content_processor.glob.glob") as mock_glob, \
+         patch("content_bot.services.vision.extract_text_from_image") as mock_ocr, \
+         patch("content_bot.config.WEBSHARE_PROXY_URL", None):
+
+        mock_run.return_value = MagicMock(returncode=0)
+        mock_glob.side_effect = [["/tmp/fake/1.jpg"], [], [], []]
+        mock_ocr.return_value = ""
+
+        result = _extract_carousel_text("https://www.instagram.com/p/abc123/")
+
+    assert result is None

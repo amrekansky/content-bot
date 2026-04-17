@@ -168,6 +168,42 @@ def _extract_with_groq(url: str, platform: str) -> str | None:
     return None
 
 
+def _extract_carousel_text(url: str) -> str | None:
+    """Download carousel images via yt-dlp and OCR each with Google Vision."""
+    from content_bot.config import WEBSHARE_PROXY_URL
+    from content_bot.services import vision
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        cmd = [
+            "yt-dlp",
+            "--output", os.path.join(tmp_dir, "%(playlist_index)s.%(ext)s"),
+        ]
+        if WEBSHARE_PROXY_URL:
+            cmd += ["--proxy", WEBSHARE_PROXY_URL]
+        cmd.append(url)
+        subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+
+        image_files = []
+        for pattern in ("*.jpg", "*.jpeg", "*.png", "*.webp"):
+            image_files.extend(glob.glob(os.path.join(tmp_dir, pattern)))
+        image_files = sorted(image_files)
+
+        if not image_files:
+            logger.info("carousel: no images downloaded for %s", url)
+            return None
+
+        slides = []
+        for i, image_path in enumerate(image_files, 1):
+            try:
+                text = vision.extract_text_from_image(image_path)
+                if text.strip():
+                    slides.append(f"[Слайд {i}]\n{text.strip()}")
+            except Exception as e:
+                logger.info("carousel: OCR failed for slide %d (%s)", i, e)
+
+        return "\n\n".join(slides) if slides else None
+
+
 def process_url(url: str) -> ProcessedContent | None:
     """Process a URL: detect type, extract transcript. Returns None for unknown URLs."""
     url_info = detect_url_type(url)

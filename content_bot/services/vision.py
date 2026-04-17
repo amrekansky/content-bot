@@ -4,8 +4,13 @@ from google.cloud import vision
 from content_bot.config import GOOGLE_VISION_API_KEY
 
 
-def extract_text_from_image(image_bytes: bytes) -> str:
-    """Extract text from image bytes using Google Vision API."""
+def extract_text_from_image(image_source: bytes | str) -> str:
+    """Extract text from image bytes or file path using Google Vision API."""
+    if isinstance(image_source, str):
+        with open(image_source, "rb") as f:
+            image_bytes = f.read()
+    else:
+        image_bytes = image_source
     client = vision.ImageAnnotatorClient(
         client_options={"api_key": GOOGLE_VISION_API_KEY}
     )
