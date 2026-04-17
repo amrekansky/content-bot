@@ -108,20 +108,11 @@ def _extract_youtube_transcript(url: str) -> str | None:
         logger.info("youtube-transcript-api failed (%s)", e)
 
     # 2. Groq Whisper (download audio + transcribe)
-    from content_bot.config import GROQ_API_KEY
-    if GROQ_API_KEY:
-        try:
-            with tempfile.TemporaryDirectory() as tmp_dir:
-                audio_path = _download_audio(url, tmp_dir)
-                if audio_path:
-                    text = _transcribe_with_groq(audio_path, GROQ_API_KEY)
-                    if text:
-                        logger.info("Groq Whisper succeeded")
-                        return text
-        except Exception as e:
-            logger.info("Groq Whisper failed (%s)", e)
+    text = _extract_with_groq(url, "youtube")
+    if text:
+        return text
 
-    # 3. yt-dlp subtitles (fallback)
+    # 3. yt-dlp subtitles (last resort)
     with tempfile.TemporaryDirectory() as tmp_dir:
         return _extract_subtitles(url, tmp_dir)
 
@@ -153,6 +144,24 @@ def _transcribe_with_groq(audio_path: str, api_key: str) -> str | None:
     return transcription.text.strip() or None
 
 
+def _extract_with_groq(url: str, platform: str) -> str | None:
+    """Download audio and transcribe with Groq Whisper."""
+    from content_bot.config import GROQ_API_KEY
+    if not GROQ_API_KEY:
+        return None
+    try:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            audio_path = _download_audio(url, tmp_dir)
+            if audio_path:
+                text = _transcribe_with_groq(audio_path, GROQ_API_KEY)
+                if text:
+                    logger.info("Groq Whisper succeeded for %s", platform)
+                    return text
+    except Exception as e:
+        logger.info("Groq Whisper failed for %s (%s)", platform, e)
+    return None
+
+
 def process_url(url: str) -> ProcessedContent | None:
     """Process a URL: detect type, extract transcript. Returns None for unknown URLs."""
     url_info = detect_url_type(url)
@@ -167,6 +176,8 @@ def process_url(url: str) -> ProcessedContent | None:
     else:
         with tempfile.TemporaryDirectory() as tmp_dir:
             transcript = _extract_subtitles(url, tmp_dir)
+        if not transcript:
+            transcript = _extract_with_groq(url, platform)
 
     return ProcessedContent(
         platform=platform,
