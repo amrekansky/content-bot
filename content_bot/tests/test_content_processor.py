@@ -47,6 +47,12 @@ def test_detects_youtu_be():
     assert result["content_type"] == "video"
 
 
+def test_detects_youtube_shorts():
+    result = detect_url_type("https://www.youtube.com/shorts/F3nYY3N2wgw")
+    assert result["platform"] == "youtube"
+    assert result["content_type"] == "video"
+
+
 def test_detects_linkedin():
     result = detect_url_type("https://www.linkedin.com/posts/user_activity-123")
     assert result["platform"] == "linkedin"

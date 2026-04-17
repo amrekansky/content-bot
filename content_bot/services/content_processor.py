@@ -23,6 +23,7 @@ _URL_PATTERNS = [
     (r"instagram\.com/reel/", "instagram", "video_short"),
     (r"instagram\.com/p/", "instagram", "carousel"),
     (r"youtube\.com/watch", "youtube", "video"),
+    (r"youtube\.com/shorts/", "youtube", "video"),
     (r"youtu\.be/", "youtube", "video"),
     (r"linkedin\.com", "linkedin", "post"),
 ]
@@ -98,7 +99,7 @@ def _extract_youtube_transcript(url: str) -> str | None:
     # 1. youtube-transcript-api (fastest, no download)
     try:
         from youtube_transcript_api import YouTubeTranscriptApi
-        video_id_match = re.search(r"(?:v=|youtu\.be/)([A-Za-z0-9_-]{11})", url)
+        video_id_match = re.search(r"(?:v=|youtu\.be/|shorts/)([A-Za-z0-9_-]{11})", url)
         if video_id_match:
             video_id = video_id_match.group(1)
             ytt = YouTubeTranscriptApi()
