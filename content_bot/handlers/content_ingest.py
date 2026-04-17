@@ -100,7 +100,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if message.document:
         mime = message.document.mime_type or ""
         await message.reply_text("⏳ Обрабатываю файл...")
-        file = await message.bot.get_file(message.document.file_id)
+        file = await context.bot.get_file(message.document.file_id)
         file_bytes = await file.download_as_bytearray()
 
         if mime == "application/pdf":

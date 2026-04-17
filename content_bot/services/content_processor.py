@@ -170,7 +170,8 @@ def _extract_with_groq(url: str, platform: str) -> str | None:
 
 def _extract_carousel_text(url: str) -> str | None:
     """Download carousel images via yt-dlp and OCR each with Google Vision."""
-    from content_bot.config import WEBSHARE_PROXY_URL
+    import base64
+    from content_bot.config import WEBSHARE_PROXY_URL, INSTAGRAM_COOKIES_B64
     from content_bot.services import vision
 
     with tempfile.TemporaryDirectory() as tmp_dir:
@@ -180,6 +181,11 @@ def _extract_carousel_text(url: str) -> str | None:
         ]
         if WEBSHARE_PROXY_URL:
             cmd += ["--proxy", WEBSHARE_PROXY_URL]
+        if INSTAGRAM_COOKIES_B64:
+            cookies_path = os.path.join(tmp_dir, "cookies.txt")
+            with open(cookies_path, "wb") as f:
+                f.write(base64.b64decode(INSTAGRAM_COOKIES_B64))
+            cmd += ["--cookies", cookies_path]
         cmd.append(url)
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
         all_files = os.listdir(tmp_dir)
