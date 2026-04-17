@@ -132,3 +132,44 @@ def test_process_url_no_subtitles_returns_content_without_transcript():
     assert result is not None
     assert result.platform == "youtube"
     assert result.transcript is None
+
+
+# --- proxy support ---
+
+def test_extract_subtitles_passes_proxy_when_set():
+    """When WEBSHARE_PROXY_URL is set, --proxy flag appears in yt-dlp command."""
+    vtt_content = "WEBVTT\n\n00:00:01.000 --> 00:00:03.000\nHello\n"
+
+    with patch("content_bot.services.content_processor.subprocess.run") as mock_run, \
+         patch("content_bot.services.content_processor.glob.glob") as mock_glob, \
+         patch("builtins.open", mock_open(read_data=vtt_content)), \
+         patch("content_bot.services.content_processor.os.remove"), \
+         patch("content_bot.config.WEBSHARE_PROXY_URL", "http://user:pass@p.webshare.io:80"):
+
+        mock_run.return_value = MagicMock(returncode=0)
+        mock_glob.side_effect = [["/tmp/abc.vtt"], []]
+
+        process_url("https://www.tiktok.com/@user/video/123")
+
+        cmd = mock_run.call_args[0][0]
+        assert "--proxy" in cmd
+        assert "http://user:pass@p.webshare.io:80" in cmd
+
+
+def test_extract_subtitles_no_proxy_when_not_set():
+    """When WEBSHARE_PROXY_URL is not set, --proxy is absent from yt-dlp command."""
+    vtt_content = "WEBVTT\n\n00:00:01.000 --> 00:00:03.000\nHello\n"
+
+    with patch("content_bot.services.content_processor.subprocess.run") as mock_run, \
+         patch("content_bot.services.content_processor.glob.glob") as mock_glob, \
+         patch("builtins.open", mock_open(read_data=vtt_content)), \
+         patch("content_bot.services.content_processor.os.remove"), \
+         patch("content_bot.config.WEBSHARE_PROXY_URL", None):
+
+        mock_run.return_value = MagicMock(returncode=0)
+        mock_glob.side_effect = [["/tmp/abc.vtt"], []]
+
+        process_url("https://www.tiktok.com/@user/video/123")
+
+        cmd = mock_run.call_args[0][0]
+        assert "--proxy" not in cmd

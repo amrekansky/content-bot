@@ -59,14 +59,17 @@ def parse_vtt_text(vtt_content: str) -> str:
 
 def _extract_subtitles(url: str, tmp_dir: str) -> str | None:
     """Run yt-dlp to extract subtitles. Return clean text or None."""
+    from content_bot.config import WEBSHARE_PROXY_URL
     cmd = [
         "yt-dlp",
         "--write-auto-sub",
         "--sub-lang", "ru,en",
         "--skip-download",
         "--output", os.path.join(tmp_dir, "%(id)s"),
-        url,
     ]
+    if WEBSHARE_PROXY_URL:
+        cmd += ["--proxy", WEBSHARE_PROXY_URL]
+    cmd.append(url)
     subprocess.run(cmd, capture_output=True, text=True, timeout=120)
 
     vtt_files = glob.glob(os.path.join(tmp_dir, "*.vtt"))
@@ -119,14 +122,17 @@ def _extract_youtube_transcript(url: str) -> str | None:
 
 def _download_audio(url: str, tmp_dir: str) -> str | None:
     """Download audio as mp3 via yt-dlp. Returns file path or None."""
+    from content_bot.config import WEBSHARE_PROXY_URL
     cmd = [
         "yt-dlp",
         "--extract-audio",
         "--audio-format", "mp3",
         "--audio-quality", "5",  # ~64kbps mono, keeps file under 25MB
         "--output", os.path.join(tmp_dir, "%(id)s.%(ext)s"),
-        url,
     ]
+    if WEBSHARE_PROXY_URL:
+        cmd += ["--proxy", WEBSHARE_PROXY_URL]
+    cmd.append(url)
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
     mp3_files = glob.glob(os.path.join(tmp_dir, "*.mp3"))
     return mp3_files[0] if mp3_files else None
