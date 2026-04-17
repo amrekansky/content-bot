@@ -230,3 +230,37 @@ def test_extract_carousel_text_returns_none_when_all_ocr_empty():
         result = _extract_carousel_text("https://www.instagram.com/p/abc123/")
 
     assert result is None
+
+
+def test_process_url_instagram_carousel_routes_to_ocr():
+    """Instagram p/ (carousel) goes to _extract_carousel_text, skips audio pipeline."""
+    with patch("content_bot.services.content_processor._extract_carousel_text") as mock_carousel, \
+         patch("content_bot.services.content_processor._extract_subtitles") as mock_subs, \
+         patch("content_bot.services.content_processor._extract_with_groq") as mock_groq:
+
+        mock_carousel.return_value = "[Слайд 1]\nИнфографика"
+
+        result = process_url("https://www.instagram.com/p/abc123/")
+
+    mock_carousel.assert_called_once_with("https://www.instagram.com/p/abc123/")
+    mock_subs.assert_not_called()
+    mock_groq.assert_not_called()
+    assert result.platform == "instagram"
+    assert result.content_type == "carousel"
+    assert result.transcript == "[Слайд 1]\nИнфографика"
+
+
+def test_process_url_tiktok_falls_back_to_carousel_when_no_audio():
+    """TikTok with no audio/subtitles tries _extract_carousel_text as final fallback."""
+    with patch("content_bot.services.content_processor._extract_subtitles") as mock_subs, \
+         patch("content_bot.services.content_processor._extract_with_groq") as mock_groq, \
+         patch("content_bot.services.content_processor._extract_carousel_text") as mock_carousel:
+
+        mock_subs.return_value = None
+        mock_groq.return_value = None
+        mock_carousel.return_value = "[Слайд 1]\nТекст из слайда"
+
+        result = process_url("https://www.tiktok.com/@user/video/123")
+
+    mock_carousel.assert_called_once()
+    assert result.transcript == "[Слайд 1]\nТекст из слайда"

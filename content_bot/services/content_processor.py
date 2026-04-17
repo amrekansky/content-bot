@@ -215,11 +215,15 @@ def process_url(url: str) -> ProcessedContent | None:
 
     if platform == "youtube":
         transcript = _extract_youtube_transcript(url)
+    elif content_type == "carousel":
+        transcript = _extract_carousel_text(url)
     else:
         with tempfile.TemporaryDirectory() as tmp_dir:
             transcript = _extract_subtitles(url, tmp_dir)
         if not transcript:
             transcript = _extract_with_groq(url, platform)
+        if not transcript:
+            transcript = _extract_carousel_text(url)
 
     return ProcessedContent(
         platform=platform,
