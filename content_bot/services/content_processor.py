@@ -90,24 +90,68 @@ def _extract_subtitles(url: str, tmp_dir: str) -> str | None:
 
 
 def _extract_youtube_transcript(url: str) -> str | None:
-    """Try youtube-transcript-api first, fall back to yt-dlp."""
+    """Try youtube-transcript-api → Groq Whisper → yt-dlp subtitles."""
+
+    # 1. youtube-transcript-api (fastest, no download)
     try:
         from youtube_transcript_api import YouTubeTranscriptApi
-        import re as _re
-        video_id_match = _re.search(r"(?:v=|youtu\.be/)([A-Za-z0-9_-]{11})", url)
-        if not video_id_match:
-            return None
-        video_id = video_id_match.group(1)
-        transcript_list = YouTubeTranscriptApi.get_transcript(
-            video_id, languages=["ru", "en"]
-        )
-        text = " ".join(entry["text"] for entry in transcript_list)
-        return text.strip() or None
+        video_id_match = re.search(r"(?:v=|youtu\.be/)([A-Za-z0-9_-]{11})", url)
+        if video_id_match:
+            video_id = video_id_match.group(1)
+            transcript_list = YouTubeTranscriptApi.get_transcript(
+                video_id, languages=["ru", "en"]
+            )
+            text = " ".join(entry["text"] for entry in transcript_list)
+            if text.strip():
+                logger.info("youtube-transcript-api succeeded")
+                return text.strip()
     except Exception as e:
-        logger.info("youtube-transcript-api failed (%s), trying yt-dlp", e)
+        logger.info("youtube-transcript-api failed (%s)", e)
 
+    # 2. Groq Whisper (download audio + transcribe)
+    from content_bot.config import GROQ_API_KEY
+    if GROQ_API_KEY:
+        try:
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                audio_path = _download_audio(url, tmp_dir)
+                if audio_path:
+                    text = _transcribe_with_groq(audio_path, GROQ_API_KEY)
+                    if text:
+                        logger.info("Groq Whisper succeeded")
+                        return text
+        except Exception as e:
+            logger.info("Groq Whisper failed (%s)", e)
+
+    # 3. yt-dlp subtitles (fallback)
     with tempfile.TemporaryDirectory() as tmp_dir:
         return _extract_subtitles(url, tmp_dir)
+
+
+def _download_audio(url: str, tmp_dir: str) -> str | None:
+    """Download audio as mp3 via yt-dlp. Returns file path or None."""
+    cmd = [
+        "yt-dlp",
+        "--extract-audio",
+        "--audio-format", "mp3",
+        "--audio-quality", "5",  # ~64kbps mono, keeps file under 25MB
+        "--output", os.path.join(tmp_dir, "%(id)s.%(ext)s"),
+        url,
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+    mp3_files = glob.glob(os.path.join(tmp_dir, "*.mp3"))
+    return mp3_files[0] if mp3_files else None
+
+
+def _transcribe_with_groq(audio_path: str, api_key: str) -> str | None:
+    """Transcribe audio file using Groq Whisper API."""
+    from groq import Groq
+    client = Groq(api_key=api_key)
+    with open(audio_path, "rb") as f:
+        transcription = client.audio.transcriptions.create(
+            file=(os.path.basename(audio_path), f),
+            model="whisper-large-v3-turbo",
+        )
+    return transcription.text.strip() or None
 
 
 def process_url(url: str) -> ProcessedContent | None:
