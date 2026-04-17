@@ -186,7 +186,7 @@ def _extract_carousel_text(url: str) -> str | None:
         image_files = []
         for pattern in ("*.jpg", "*.jpeg", "*.png", "*.webp"):
             image_files.extend(glob.glob(os.path.join(tmp_dir, pattern)))
-        image_files = sorted(image_files)
+        image_files = sorted(image_files, key=lambda p: int(os.path.splitext(os.path.basename(p))[0]))
 
         if not image_files:
             logger.info("carousel: no images downloaded for %s", url)
