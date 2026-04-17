@@ -168,6 +168,50 @@ def _extract_with_groq(url: str, platform: str) -> str | None:
     return None
 
 
+def _extract_instagram_carousel(url: str) -> str | None:
+    """Download Instagram carousel images via instaloader + OCR with Google Vision."""
+    import re
+    import requests as _requests
+    import instaloader
+    from content_bot.config import INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD
+    from content_bot.services import vision
+
+    if not (INSTAGRAM_USERNAME and INSTAGRAM_PASSWORD):
+        return None
+
+    shortcode_match = re.search(r'/p/([A-Za-z0-9_-]+)/', url)
+    if not shortcode_match:
+        return None
+    shortcode = shortcode_match.group(1)
+
+    try:
+        L = instaloader.Instaloader(download_pictures=False, download_videos=False,
+                                    download_video_thumbnails=False, download_geotags=False,
+                                    download_comments=False, save_metadata=False, quiet=True)
+        L.login(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
+        post = instaloader.Post.from_shortcode(L.context, shortcode)
+
+        slides = []
+        if post.typename == "GraphSidecar":
+            for i, node in enumerate(post.get_sidecar_nodes(), 1):
+                if not node.is_video:
+                    resp = _requests.get(node.display_url, timeout=30)
+                    text = vision.extract_text_from_image(resp.content)
+                    if text.strip():
+                        slides.append(f"[Слайд {i}]\n{text.strip()}")
+        else:
+            resp = _requests.get(post.url, timeout=30)
+            text = vision.extract_text_from_image(resp.content)
+            if text.strip():
+                slides.append(f"[Слайд 1]\n{text.strip()}")
+
+        logger.info("instaloader: %d slides with text for %s", len(slides), shortcode)
+        return "\n\n".join(slides) if slides else None
+    except Exception as e:
+        logger.info("instaloader failed for %s (%s)", shortcode, e)
+        return None
+
+
 def _extract_carousel_text(url: str) -> str | None:
     """Download carousel images via yt-dlp and OCR each with Google Vision."""
     import base64
@@ -233,7 +277,9 @@ def process_url(url: str) -> ProcessedContent | None:
     if platform == "youtube":
         transcript = _extract_youtube_transcript(url)
     elif content_type == "carousel":
-        transcript = _extract_carousel_text(url)
+        transcript = _extract_instagram_carousel(url)
+        if not transcript:
+            transcript = _extract_carousel_text(url)
     else:
         with tempfile.TemporaryDirectory() as tmp_dir:
             transcript = _extract_subtitles(url, tmp_dir)

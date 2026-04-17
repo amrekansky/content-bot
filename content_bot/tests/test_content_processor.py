@@ -233,16 +233,17 @@ def test_extract_carousel_text_returns_none_when_all_ocr_empty():
 
 
 def test_process_url_instagram_carousel_routes_to_ocr():
-    """Instagram p/ (carousel) goes to _extract_carousel_text, skips audio pipeline."""
-    with patch("content_bot.services.content_processor._extract_carousel_text") as mock_carousel, \
+    """Instagram p/ (carousel) goes to instaloader first, skips audio pipeline."""
+    with patch("content_bot.services.content_processor._extract_instagram_carousel") as mock_insta, \
+         patch("content_bot.services.content_processor._extract_carousel_text") as mock_carousel, \
          patch("content_bot.services.content_processor._extract_subtitles") as mock_subs, \
          patch("content_bot.services.content_processor._extract_with_groq") as mock_groq:
 
-        mock_carousel.return_value = "[Слайд 1]\nИнфографика"
+        mock_insta.return_value = "[Слайд 1]\nИнфографика"
 
         result = process_url("https://www.instagram.com/p/abc123/")
 
-    mock_carousel.assert_called_once_with("https://www.instagram.com/p/abc123/")
+    mock_insta.assert_called_once_with("https://www.instagram.com/p/abc123/")
     mock_subs.assert_not_called()
     mock_groq.assert_not_called()
     assert result.platform == "instagram"
