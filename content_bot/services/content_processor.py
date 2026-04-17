@@ -98,10 +98,9 @@ def _extract_youtube_transcript(url: str) -> str | None:
         video_id_match = re.search(r"(?:v=|youtu\.be/)([A-Za-z0-9_-]{11})", url)
         if video_id_match:
             video_id = video_id_match.group(1)
-            transcript_list = YouTubeTranscriptApi.get_transcript(
-                video_id, languages=["ru", "en"]
-            )
-            text = " ".join(entry["text"] for entry in transcript_list)
+            ytt = YouTubeTranscriptApi()
+            transcript_list = ytt.fetch(video_id, languages=["ru", "en"])
+            text = " ".join(entry.text for entry in transcript_list)
             if text.strip():
                 logger.info("youtube-transcript-api succeeded")
                 return text.strip()
