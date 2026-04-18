@@ -62,12 +62,16 @@ def append_row(
         return
     try:
         sheet = _get_sheet()
-        # Find next empty row by column A (ignores data validation in empty rows)
+        # Find next empty row: scan col A for last non-empty value
         col_a = sheet.col_values(1)
-        next_row = len(col_a) + 1
-        if next_row == 1:
+        last_data_row = 0
+        for i, val in enumerate(col_a):
+            if val and val.strip():
+                last_data_row = i + 1
+        if last_data_row == 0:
             sheet.update("A1", [HEADERS])
-            next_row = 2
+            last_data_row = 1
+        next_row = last_data_row + 1
         row_data = [
             content_id,
             url,
