@@ -100,10 +100,12 @@ def _extract_youtube_transcript(url: str) -> str | None:
     # 1. youtube-transcript-api (fastest, no download)
     try:
         from youtube_transcript_api import YouTubeTranscriptApi
+        from content_bot.config import WEBSHARE_PROXY_URL
         video_id_match = re.search(r"(?:v=|youtu\.be/|shorts/)([A-Za-z0-9_-]{11})", url)
         if video_id_match:
             video_id = video_id_match.group(1)
-            ytt = YouTubeTranscriptApi()
+            proxies = {"http": WEBSHARE_PROXY_URL, "https": WEBSHARE_PROXY_URL} if WEBSHARE_PROXY_URL else None
+            ytt = YouTubeTranscriptApi(proxies=proxies) if proxies else YouTubeTranscriptApi()
             transcript_list = ytt.fetch(video_id, languages=["ru", "en"])
             text = " ".join(entry.text for entry in transcript_list)
             if text.strip():
