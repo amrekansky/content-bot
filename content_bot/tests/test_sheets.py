@@ -19,17 +19,20 @@ def _make_sheet_mock(rows=None):
 @patch("content_bot.services.sheets.GOOGLE_SHEETS_CREDENTIALS", '{"type":"service_account"}')
 @patch("content_bot.services.sheets._get_sheet")
 def test_append_row_adds_row(mock_get_sheet):
-    sheet = _make_sheet_mock(rows=[["ID", "URL"]])
+    sheet = MagicMock()
+    sheet.col_values.return_value = ["ID"]  # header only → next_row = 2
     mock_get_sheet.return_value = sheet
 
     append_row(1, "https://tiktok.com/v/123", "tiktok", "Test video",
                "transcript text", "analysis text")
 
-    sheet.append_row.assert_called_once()
-    call_args = sheet.append_row.call_args[0][0]
-    assert call_args[0] == 1          # ID
-    assert call_args[1] == "https://tiktok.com/v/123"
-    assert call_args[7] == "новый"    # Статус
+    sheet.update.assert_called_once()
+    call_range, call_data = sheet.update.call_args[0]
+    assert call_range == "A2"
+    row = call_data[0]
+    assert row[0] == 1                 # ID
+    assert row[1] == "https://tiktok.com/v/123"
+    assert row[7] == "новый"           # Статус
 
 
 @patch("content_bot.services.sheets.GOOGLE_SHEETS_ID", "fake-id")

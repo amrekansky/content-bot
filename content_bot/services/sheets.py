@@ -62,9 +62,13 @@ def append_row(
         return
     try:
         sheet = _get_sheet()
-        if not sheet.get_all_values():
-            sheet.append_row(HEADERS)
-        sheet.append_row([
+        # Find next empty row by column A (ignores data validation in empty rows)
+        col_a = sheet.col_values(1)
+        next_row = len(col_a) + 1
+        if next_row == 1:
+            sheet.update("A1", [HEADERS])
+            next_row = 2
+        row_data = [
             content_id,
             url,
             platform,
@@ -75,8 +79,9 @@ def append_row(
             "новый",
             False, False, False, False,
             "", "", "", "",
-        ])
-        logger.info("Sheets: appended row for content_id=%d", content_id)
+        ]
+        sheet.update(f"A{next_row}", [row_data])
+        logger.info("Sheets: appended row for content_id=%d at row %d", content_id, next_row)
     except Exception as e:
         logger.warning("Sheets append_row failed: %s", e, exc_info=True)
 
