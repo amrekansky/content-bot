@@ -1,5 +1,6 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+from telegram import Update, Message, User, Chat
 from content_bot.handlers.content_ingest import handle_message
 
 
@@ -112,3 +113,55 @@ async def test_handle_url_no_transcript():
     ctx.bot.send_message.assert_called_once()
     success_reply = update.message.reply_text.call_args_list[-1][0][0]
     assert "7" in success_reply
+
+
+def _make_update(text="https://www.youtube.com/watch?v=abc123"):
+    user = MagicMock(spec=User)
+    chat = MagicMock(spec=Chat)
+    message = MagicMock(spec=Message)
+    message.text = text
+    message.photo = None
+    message.document = None
+    message.reply_text = AsyncMock()
+    message.chat = chat
+    update = MagicMock(spec=Update)
+    update.message = message
+    return update
+
+
+@pytest.mark.asyncio
+@patch("content_bot.handlers.content_ingest.process_url")
+@patch("content_bot.handlers.content_ingest.insert_content", return_value=7)
+@patch("content_bot.handlers.content_ingest.analyzer")
+@patch("content_bot.handlers.content_ingest.sheets")
+@patch("content_bot.handlers.content_ingest.init_db")
+@patch("content_bot.handlers.content_ingest.LIBRARY_CHANNEL_ID", -1001234567890)
+async def test_url_triggers_analysis_and_sheets(
+    mock_init_db, mock_sheets, mock_analyzer, mock_insert, mock_process
+):
+    mock_process.return_value = MagicMock(
+        source_url="https://www.youtube.com/watch?v=abc123",
+        platform="youtube",
+        content_type="video",
+        transcript="transcript text",
+        title="Test Video Title",
+    )
+    mock_analyzer.analyze.return_value = "Хук: тест"
+
+    context = MagicMock()
+    context.bot.send_message = AsyncMock()
+    update = _make_update("https://www.youtube.com/watch?v=abc123")
+
+    await handle_message(update, context)
+
+    mock_analyzer.analyze.assert_called_once_with(
+        "transcript text", "youtube", "video"
+    )
+    mock_sheets.append_row.assert_called_once_with(
+        7,
+        "https://www.youtube.com/watch?v=abc123",
+        "youtube",
+        "Test Video Title",
+        "transcript text",
+        "Хук: тест",
+    )

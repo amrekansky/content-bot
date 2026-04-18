@@ -15,6 +15,7 @@ class ProcessedContent:
     content_type: str
     transcript: str | None
     source_url: str
+    title: str | None = None
 
 
 _URL_PATTERNS = [

@@ -6,6 +6,7 @@ from content_bot.config import LIBRARY_CHANNEL_ID
 from content_bot.database.db import init_db, insert_content
 from content_bot.services.content_processor import process_url
 from content_bot.services.vision import extract_text_from_image, extract_text_from_pdf
+from content_bot.services import analyzer, sheets
 
 _URL_RE = re.compile(r"https?://\S+")
 
@@ -52,6 +53,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             platform=result.platform,
             content_type=result.content_type,
             transcript=result.transcript,
+        )
+
+        # Module 2: analyze and sync to Google Sheets
+        title = getattr(result, "title", None)
+        analysis = analyzer.analyze(result.transcript, result.platform, result.content_type)
+        sheets.append_row(
+            content_id,
+            result.source_url,
+            result.platform,
+            title,
+            result.transcript,
+            analysis,
         )
 
         reply = f"✅ Сохранено #{content_id}\n📎 {result.platform} | {result.content_type}"
