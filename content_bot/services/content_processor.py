@@ -100,12 +100,10 @@ def _extract_youtube_transcript(url: str) -> str | None:
     # 1. youtube-transcript-api (fastest, no download)
     try:
         from youtube_transcript_api import YouTubeTranscriptApi
-        from content_bot.config import WEBSHARE_PROXY_URL
         video_id_match = re.search(r"(?:v=|youtu\.be/|shorts/)([A-Za-z0-9_-]{11})", url)
         if video_id_match:
             video_id = video_id_match.group(1)
-            proxies = {"http": WEBSHARE_PROXY_URL, "https": WEBSHARE_PROXY_URL} if WEBSHARE_PROXY_URL else None
-            ytt = YouTubeTranscriptApi(proxies=proxies) if proxies else YouTubeTranscriptApi()
+            ytt = YouTubeTranscriptApi()
             transcript_list = ytt.fetch(video_id, languages=["ru", "en"])
             text = " ".join(entry.text for entry in transcript_list)
             if text.strip():
@@ -139,6 +137,9 @@ def _download_audio(url: str, tmp_dir: str) -> str | None:
     cmd.append(url)
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
     mp3_files = glob.glob(os.path.join(tmp_dir, "*.mp3"))
+    if not mp3_files:
+        logger.warning("yt-dlp audio download failed: rc=%d stderr=%s",
+                       result.returncode, result.stderr[-300:])
     return mp3_files[0] if mp3_files else None
 
 
