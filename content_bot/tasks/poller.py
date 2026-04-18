@@ -40,3 +40,4 @@ async def poll_once(context: ContextTypes.DEFAULT_TYPE) -> None:
         except Exception as e:
             logger.error("Poller: error processing row %d: %s", row.row_num, e,
                          exc_info=True)
+            sheets.update_status(row.row_num, "одобрено")
