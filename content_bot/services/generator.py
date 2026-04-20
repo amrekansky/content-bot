@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 from pathlib import Path
 
 import anthropic
@@ -97,6 +98,8 @@ def generate(transcript: str, analysis: str, platform: str) -> dict | None:
             messages=[{"role": "user", "content": user_prompt}],
         )
         raw = message.content[0].text.strip()
+        raw = re.sub(r"^```(?:json)?\s*", "", raw)
+        raw = re.sub(r"\s*```$", "", raw).strip()
         data = json.loads(raw)
         platform_label, format_label = _PLATFORM_FORMAT[platform]
         return {
