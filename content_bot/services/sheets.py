@@ -5,7 +5,11 @@ from datetime import datetime
 
 import gspread
 
-from content_bot.config import GOOGLE_SHEETS_ID, GOOGLE_SHEETS_CREDENTIALS
+from content_bot.config import (
+    GOOGLE_SHEETS_ID,
+    CONTENT_CALENDAR_SHEETS_ID,
+    GOOGLE_SHEETS_CREDENTIALS,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -159,3 +163,49 @@ def update_scripts(row_num: int, scripts: dict[str, str]) -> None:
                 sheet.update_cell(row_num, col_map[platform], text)
     except Exception as e:
         logger.warning("Sheets update_scripts failed: %s", e, exc_info=True)
+
+
+# ── Content Calendar ───────────────────────────────────────────────────────────
+
+_CALENDAR_HEADERS = ["Дата", "Платформа", "Формат", "Хук", "Контент", "Статус", "Источник URL", "Файл"]
+
+
+def _get_calendar_sheet():
+    creds = json.loads(GOOGLE_SHEETS_CREDENTIALS)
+    client = gspread.service_account_from_dict(creds)
+    return client.open_by_key(CONTENT_CALENDAR_SHEETS_ID).sheet1
+
+
+def append_to_calendar(
+    platform_label: str,
+    format_label: str,
+    hook: str,
+    content: str,
+    source_url: str,
+) -> None:
+    """Append a generated post to the Content Calendar sheet."""
+    if not GOOGLE_SHEETS_CREDENTIALS:
+        logger.warning("Calendar append skipped: credentials not configured")
+        return
+    try:
+        sheet = _get_calendar_sheet()
+        col_a = sheet.col_values(1)
+        last_row = sum(1 for v in col_a if v and v.strip())
+        if last_row == 0:
+            sheet.update("A1", [_CALENDAR_HEADERS])
+            last_row = 1
+        next_row = last_row + 1
+        row_data = [
+            datetime.now().strftime("%Y-%m-%d"),
+            platform_label,
+            format_label,
+            hook,
+            content,
+            "черновик",
+            source_url,
+            "",
+        ]
+        sheet.update(f"A{next_row}", [row_data])
+        logger.info("Calendar: appended %s row at %d", platform_label, next_row)
+    except Exception as e:
+        logger.warning("Calendar append failed: %s", e, exc_info=True)

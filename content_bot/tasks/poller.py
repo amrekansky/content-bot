@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 
 async def poll_once(context: ContextTypes.DEFAULT_TYPE) -> None:
-    """PTB JobQueue callback: find approved rows, generate scripts, update Sheets."""
+    """PTB JobQueue callback: find approved rows, generate scripts, write to Content Calendar."""
     rows = sheets.get_approved_rows()
     if not rows:
         return
@@ -18,26 +18,30 @@ async def poll_once(context: ContextTypes.DEFAULT_TYPE) -> None:
         try:
             sheets.update_status(row.row_num, "в работе")
 
-            scripts = {}
+            generated_any = False
             for platform, checked in [
                 ("tiktok", row.tiktok),
                 ("telegram", row.telegram),
                 ("linkedin", row.linkedin),
                 ("youtube", row.youtube),
             ]:
-                if checked:
-                    text = generator.generate(row.transcript, row.analysis, platform)
-                    if text:
-                        scripts[platform] = text
-                    else:
-                        logger.warning("Generation returned None for %s row=%d",
-                                       platform, row.row_num)
+                if not checked:
+                    continue
+                result = generator.generate(row.transcript, row.analysis, platform)
+                if not result:
+                    logger.warning("Generation returned None for %s row=%d", platform, row.row_num)
+                    continue
+                sheets.append_to_calendar(
+                    platform_label=result["platform_label"],
+                    format_label=result["format_label"],
+                    hook=result["hook"],
+                    content=result["content"],
+                    source_url=row.url,
+                )
+                generated_any = True
 
-            sheets.update_scripts(row.row_num, scripts)
-            sheets.update_status(row.row_num, "готово")
-            logger.info("Poller: row %d done, platforms: %s",
-                        row.row_num, list(scripts.keys()))
+            sheets.update_status(row.row_num, "готово" if generated_any else "ошибка")
+            logger.info("Poller: row %d done", row.row_num)
         except Exception as e:
-            logger.error("Poller: error processing row %d: %s", row.row_num, e,
-                         exc_info=True)
+            logger.error("Poller: error processing row %d: %s", row.row_num, e, exc_info=True)
             sheets.update_status(row.row_num, "одобрено")

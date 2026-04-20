@@ -6,7 +6,7 @@ groq
 instaloader
 pdfplumber==0.11.0
 google-cloud-vision==3.7.2
-google-generativeai
+anthropic>=0.40.0
 gspread
 python-dotenv==1.0.1
 pytest==8.1.1

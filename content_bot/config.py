@@ -28,6 +28,9 @@ WEBSHARE_PROXY_URL: str | None = os.environ.get("WEBSHARE_PROXY_URL")
 INSTAGRAM_COOKIES_B64: str | None = os.environ.get("INSTAGRAM_COOKIES_B64")
 INSTAGRAM_USERNAME: str | None = os.environ.get("INSTAGRAM_USERNAME")
 INSTAGRAM_PASSWORD: str | None = os.environ.get("INSTAGRAM_PASSWORD")
-GEMINI_API_KEY: str | None = os.environ.get("GEMINI_API_KEY")
+ANTHROPIC_API_KEY: str | None = os.environ.get("ANTHROPIC_API_KEY")
 GOOGLE_SHEETS_ID: str | None = os.environ.get("GOOGLE_SHEETS_ID")
+CONTENT_CALENDAR_SHEETS_ID: str = os.environ.get(
+    "CONTENT_CALENDAR_SHEETS_ID", "1Q7sAPrh7f0XbCls9zatz9_7GjgHiaKNbz1SzLGuL1NI"
+)
 GOOGLE_SHEETS_CREDENTIALS: str | None = os.environ.get("GOOGLE_SHEETS_CREDENTIALS")
