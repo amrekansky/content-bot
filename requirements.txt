@@ -1,6 +1,7 @@
 python-telegram-bot[job-queue]==20.7
 psycopg2-binary==2.9.9
 yt-dlp
+curl_cffi
 youtube-transcript-api
 groq
 instaloader

@@ -123,24 +123,24 @@ def _extract_youtube_transcript(url: str) -> str | None:
 
 
 def _download_audio(url: str, tmp_dir: str) -> str | None:
-    """Download audio as mp3 via yt-dlp. Returns file path or None."""
+    """Download best available audio via yt-dlp without ffmpeg conversion."""
     from content_bot.config import WEBSHARE_PROXY_URL
     cmd = [
         "yt-dlp",
-        "--extract-audio",
-        "--audio-format", "mp3",
-        "--audio-quality", "5",  # ~64kbps mono, keeps file under 25MB
+        "--format", "bestaudio[ext=m4a]/bestaudio/best[filesize<25M]",
         "--output", os.path.join(tmp_dir, "%(id)s.%(ext)s"),
     ]
     if WEBSHARE_PROXY_URL:
         cmd += ["--proxy", WEBSHARE_PROXY_URL]
     cmd.append(url)
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
-    mp3_files = glob.glob(os.path.join(tmp_dir, "*.mp3"))
-    if not mp3_files:
+    audio_files = []
+    for pattern in ("*.m4a", "*.mp3", "*.webm", "*.mp4", "*.ogg", "*.opus"):
+        audio_files.extend(glob.glob(os.path.join(tmp_dir, pattern)))
+    if not audio_files:
         logger.warning("yt-dlp audio download failed: rc=%d stderr=%s",
                        result.returncode, result.stderr[-300:])
-    return mp3_files[0] if mp3_files else None
+    return audio_files[0] if audio_files else None
 
 
 def _transcribe_with_groq(audio_path: str, api_key: str) -> str | None:
