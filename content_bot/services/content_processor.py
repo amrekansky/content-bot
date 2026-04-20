@@ -61,7 +61,8 @@ def parse_vtt_text(vtt_content: str) -> str:
 
 def _extract_subtitles(url: str, tmp_dir: str) -> str | None:
     """Run yt-dlp to extract subtitles. Return clean text or None."""
-    from content_bot.config import WEBSHARE_PROXY_URL
+    import base64
+    from content_bot.config import WEBSHARE_PROXY_URL, YOUTUBE_COOKIES_B64
     cmd = [
         "yt-dlp",
         "--write-auto-sub",
@@ -71,6 +72,11 @@ def _extract_subtitles(url: str, tmp_dir: str) -> str | None:
     ]
     if WEBSHARE_PROXY_URL:
         cmd += ["--proxy", WEBSHARE_PROXY_URL]
+    if YOUTUBE_COOKIES_B64 and ("youtube" in url or "youtu.be" in url):
+        cookies_path = os.path.join(tmp_dir, "yt_cookies.txt")
+        with open(cookies_path, "wb") as f:
+            f.write(base64.b64decode(YOUTUBE_COOKIES_B64))
+        cmd += ["--cookies", cookies_path]
     cmd.append(url)
     subprocess.run(cmd, capture_output=True, text=True, timeout=120)
 
@@ -94,6 +100,18 @@ def _extract_subtitles(url: str, tmp_dir: str) -> str | None:
                 pass
 
 
+def _write_youtube_cookies(tmp_dir: str) -> str | None:
+    """Write YOUTUBE_COOKIES_B64 to a temp file. Returns path or None."""
+    import base64
+    from content_bot.config import YOUTUBE_COOKIES_B64
+    if not YOUTUBE_COOKIES_B64:
+        return None
+    cookies_path = os.path.join(tmp_dir, "yt_cookies.txt")
+    with open(cookies_path, "wb") as f:
+        f.write(base64.b64decode(YOUTUBE_COOKIES_B64))
+    return cookies_path
+
+
 def _extract_youtube_transcript(url: str) -> str | None:
     """Try youtube-transcript-api → Groq Whisper → yt-dlp subtitles."""
 
@@ -112,19 +130,20 @@ def _extract_youtube_transcript(url: str) -> str | None:
     except Exception as e:
         logger.info("youtube-transcript-api failed (%s)", e)
 
-    # 2. Groq Whisper (download audio + transcribe)
+    # 2. Groq Whisper (download audio + transcribe, with cookies if available)
     text = _extract_with_groq(url, "youtube")
     if text:
         return text
 
-    # 3. yt-dlp subtitles (last resort)
+    # 3. yt-dlp subtitles (last resort, with cookies if available)
     with tempfile.TemporaryDirectory() as tmp_dir:
         return _extract_subtitles(url, tmp_dir)
 
 
 def _download_audio(url: str, tmp_dir: str) -> str | None:
     """Download best available audio via yt-dlp without ffmpeg conversion."""
-    from content_bot.config import WEBSHARE_PROXY_URL
+    from content_bot.config import WEBSHARE_PROXY_URL, YOUTUBE_COOKIES_B64
+    import base64
     cmd = [
         "yt-dlp",
         "--format", "bestaudio[ext=m4a]/bestaudio/best[filesize<25M]",
@@ -132,6 +151,11 @@ def _download_audio(url: str, tmp_dir: str) -> str | None:
     ]
     if WEBSHARE_PROXY_URL:
         cmd += ["--proxy", WEBSHARE_PROXY_URL]
+    if YOUTUBE_COOKIES_B64 and "youtube" in url or "youtu.be" in url:
+        cookies_path = os.path.join(tmp_dir, "yt_cookies.txt")
+        with open(cookies_path, "wb") as f:
+            f.write(base64.b64decode(YOUTUBE_COOKIES_B64))
+        cmd += ["--cookies", cookies_path]
     cmd.append(url)
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
     audio_files = []
