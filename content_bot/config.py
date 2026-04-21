@@ -36,3 +36,5 @@ CONTENT_CALENDAR_SHEETS_ID: str = os.environ.get(
 )
 GOOGLE_SHEETS_CREDENTIALS: str | None = os.environ.get("GOOGLE_SHEETS_CREDENTIALS")
 GOOGLE_CALENDAR_ID: str | None = os.environ.get("GOOGLE_CALENDAR_ID")
+POSTING_SCHEDULE: str | None = os.environ.get("POSTING_SCHEDULE")
+TELEGRAM_CHANNEL_ID: str | None = os.environ.get("TELEGRAM_CHANNEL_ID")

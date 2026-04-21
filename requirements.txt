@@ -9,6 +9,7 @@ pdfplumber==0.11.0
 google-cloud-vision==3.7.2
 anthropic>=0.40.0
 gspread
+Pillow
 google-api-python-client
 python-dotenv==1.0.1
 pytest==8.1.1
