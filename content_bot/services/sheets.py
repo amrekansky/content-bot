@@ -18,6 +18,7 @@ HEADERS = [
     "Транскрипт", "Анализ", "Статус",
     "TikTok ✓", "Telegram ✓", "LinkedIn ✓", "YouTube ✓",
     "TikTok скрипт", "Telegram пост", "LinkedIn пост", "YouTube скрипт",
+    "Дата публикации", "В календаре ✓",
 ]
 
 # Column numbers (1-based, matches gspread update_cell)
@@ -30,6 +31,8 @@ _COL_TIKTOK_SCRIPT = 13
 _COL_TELEGRAM_POST = 14
 _COL_LINKEDIN_POST = 15
 _COL_YOUTUBE_SCRIPT = 16
+_COL_PUBLISH_DATE = 17
+_COL_CALENDARED = 18
 
 
 @dataclass
@@ -40,6 +43,17 @@ class ApprovedRow:
     platform: str
     transcript: str
     analysis: str
+    tiktok: bool
+    telegram: bool
+    linkedin: bool
+    youtube: bool
+
+
+@dataclass
+class ScheduledRow:
+    row_num: int
+    title: str
+    publish_date_str: str
     tiktok: bool
     telegram: bool
     linkedin: bool
@@ -146,6 +160,45 @@ def update_status(row_num: int, status: str) -> None:
         logger.warning("Sheets update_status failed: %s", e, exc_info=True)
 
 
+def get_scheduled_rows() -> list[ScheduledRow]:
+    """Return rows where status='готово', publish date set, not yet calendared."""
+    if not (GOOGLE_SHEETS_ID and GOOGLE_SHEETS_CREDENTIALS):
+        return []
+    try:
+        sheet = _get_sheet()
+        all_rows = sheet.get_all_values()
+        result = []
+        for i, row in enumerate(all_rows[1:], start=2):
+            if len(row) < 8:
+                continue
+            if row[_COL_STATUS - 1] != "готово":
+                continue
+            publish_date = row[_COL_PUBLISH_DATE - 1] if len(row) >= 17 else ""
+            if not publish_date or not publish_date.strip():
+                continue
+            calendared = row[_COL_CALENDARED - 1].upper() if len(row) >= 18 else ""
+            if calendared == "TRUE":
+                continue
+            tiktok = str(row[_COL_TIKTOK_CHECK - 1]).upper() == "TRUE"
+            telegram = str(row[_COL_TELEGRAM_CHECK - 1]).upper() == "TRUE"
+            linkedin = str(row[_COL_LINKEDIN_CHECK - 1]).upper() == "TRUE"
+            youtube = str(row[_COL_YOUTUBE_CHECK - 1]).upper() == "TRUE"
+            title = row[3] if len(row) >= 4 else ""
+            result.append(ScheduledRow(
+                row_num=i,
+                title=title,
+                publish_date_str=publish_date.strip(),
+                tiktok=tiktok,
+                telegram=telegram,
+                linkedin=linkedin,
+                youtube=youtube,
+            ))
+        return result
+    except Exception as e:
+        logger.warning("Sheets get_scheduled_rows failed: %s", e, exc_info=True)
+        return []
+
+
 def update_scripts(row_num: int, scripts: dict[str, str]) -> None:
     """Write generated scripts into platform columns for a given row."""
     if not (GOOGLE_SHEETS_ID and GOOGLE_SHEETS_CREDENTIALS):
@@ -163,6 +216,18 @@ def update_scripts(row_num: int, scripts: dict[str, str]) -> None:
                 sheet.update_cell(row_num, col_map[platform], text)
     except Exception as e:
         logger.warning("Sheets update_scripts failed: %s", e, exc_info=True)
+
+
+def mark_calendared(row_num: int) -> None:
+    """Set 'В календаре ✓' = TRUE and status = 'запланировано'."""
+    if not (GOOGLE_SHEETS_ID and GOOGLE_SHEETS_CREDENTIALS):
+        return
+    try:
+        sheet = _get_sheet()
+        sheet.update_cell(row_num, _COL_CALENDARED, True)
+        sheet.update_cell(row_num, _COL_STATUS, "запланировано")
+    except Exception as e:
+        logger.warning("Sheets mark_calendared failed: %s", e, exc_info=True)
 
 
 # ── Content Calendar ───────────────────────────────────────────────────────────

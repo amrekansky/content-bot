@@ -109,3 +109,94 @@ def test_update_scripts_writes_tiktok_and_telegram(mock_get_sheet):
     calls = [c[0] for c in sheet.update_cell.call_args_list]
     assert (3, 13, "tiktok text") in calls
     assert (3, 14, "telegram text") in calls
+
+
+@patch("content_bot.services.sheets.GOOGLE_SHEETS_ID", "fake-id")
+@patch("content_bot.services.sheets.GOOGLE_SHEETS_CREDENTIALS", '{"type":"service_account"}')
+@patch("content_bot.services.sheets._get_sheet")
+def test_get_scheduled_rows_returns_ready_with_date(mock_get_sheet):
+    from content_bot.services.sheets import get_scheduled_rows
+    header = [
+        "ID","URL","Платформа","Название","Дата","Транскрипт","Анализ","Статус",
+        "TikTok ✓","Telegram ✓","LinkedIn ✓","YouTube ✓",
+        "TikTok скрипт","Telegram пост","LinkedIn пост","YouTube скрипт",
+        "Дата публикации","В календаре ✓",
+    ]
+    row = [
+        "5","https://t.com","tiktok","Мой заголовок","2026-04-20",
+        "transcript","analysis","готово",
+        "FALSE","TRUE","FALSE","FALSE",
+        "","скрипт","","",
+        "2026-04-25 18:00","",
+    ]
+    mock_get_sheet.return_value = _make_sheet_mock(rows=[header, row])
+
+    result = get_scheduled_rows()
+
+    assert len(result) == 1
+    assert result[0].title == "Мой заголовок"
+    assert result[0].publish_date_str == "2026-04-25 18:00"
+    assert result[0].telegram is True
+    assert result[0].tiktok is False
+    assert result[0].row_num == 2
+
+
+@patch("content_bot.services.sheets.GOOGLE_SHEETS_ID", "fake-id")
+@patch("content_bot.services.sheets.GOOGLE_SHEETS_CREDENTIALS", '{"type":"service_account"}')
+@patch("content_bot.services.sheets._get_sheet")
+def test_get_scheduled_rows_skips_already_calendared(mock_get_sheet):
+    from content_bot.services.sheets import get_scheduled_rows
+    header = [
+        "ID","URL","Платформа","Название","Дата","Транскрипт","Анализ","Статус",
+        "TikTok ✓","Telegram ✓","LinkedIn ✓","YouTube ✓",
+        "TikTok скрипт","Telegram пост","LinkedIn пост","YouTube скрипт",
+        "Дата публикации","В календаре ✓",
+    ]
+    row = [
+        "5","https://t.com","tiktok","Заголовок","2026-04-20",
+        "transcript","analysis","готово",
+        "FALSE","TRUE","FALSE","FALSE",
+        "","скрипт","","",
+        "2026-04-25 18:00","TRUE",
+    ]
+    mock_get_sheet.return_value = _make_sheet_mock(rows=[header, row])
+
+    assert get_scheduled_rows() == []
+
+
+@patch("content_bot.services.sheets.GOOGLE_SHEETS_ID", "fake-id")
+@patch("content_bot.services.sheets.GOOGLE_SHEETS_CREDENTIALS", '{"type":"service_account"}')
+@patch("content_bot.services.sheets._get_sheet")
+def test_get_scheduled_rows_skips_missing_date(mock_get_sheet):
+    from content_bot.services.sheets import get_scheduled_rows
+    header = [
+        "ID","URL","Платформа","Название","Дата","Транскрипт","Анализ","Статус",
+        "TikTok ✓","Telegram ✓","LinkedIn ✓","YouTube ✓",
+        "TikTok скрипт","Telegram пост","LinkedIn пост","YouTube скрипт",
+        "Дата публикации","В календаре ✓",
+    ]
+    row = [
+        "5","https://t.com","tiktok","Заголовок","2026-04-20",
+        "transcript","analysis","готово",
+        "FALSE","TRUE","FALSE","FALSE",
+        "","скрипт","","",
+        "","",
+    ]
+    mock_get_sheet.return_value = _make_sheet_mock(rows=[header, row])
+
+    assert get_scheduled_rows() == []
+
+
+@patch("content_bot.services.sheets.GOOGLE_SHEETS_ID", "fake-id")
+@patch("content_bot.services.sheets.GOOGLE_SHEETS_CREDENTIALS", '{"type":"service_account"}')
+@patch("content_bot.services.sheets._get_sheet")
+def test_mark_calendared_sets_flag_and_status(mock_get_sheet):
+    from content_bot.services.sheets import mark_calendared
+    sheet = _make_sheet_mock()
+    mock_get_sheet.return_value = sheet
+
+    mark_calendared(4)
+
+    calls = [c[0] for c in sheet.update_cell.call_args_list]
+    assert (4, 18, True) in calls
+    assert (4, 8, "запланировано") in calls
