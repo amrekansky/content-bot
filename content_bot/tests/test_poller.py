@@ -19,12 +19,20 @@ def _make_row(tiktok=False, telegram=True, linkedin=False, youtube=False):
     )
 
 
+def _make_generate_result(content="generated text"):
+    return {"hook": "хук", "content": content, "platform_label": "Telegram", "format_label": "Telegram Long"}
+
+
 @pytest.mark.asyncio
 @patch("content_bot.tasks.poller.sheets")
 @patch("content_bot.tasks.poller.generator")
-async def test_poll_once_generates_for_checked_platforms(mock_generator, mock_sheets):
+@patch("content_bot.tasks.poller.scheduler")
+async def test_poll_once_generates_for_checked_platforms(mock_scheduler, mock_generator, mock_sheets):
     mock_sheets.get_approved_rows.return_value = [_make_row(telegram=True)]
-    mock_generator.generate.return_value = "generated text"
+    mock_generator.generate.return_value = _make_generate_result("generated text")
+    mock_generator.generate_title.return_value = "SEO Title"
+    mock_scheduler.next_publish_date.return_value = "2026-04-25 18:00"
+    mock_sheets.get_all_publish_dates.return_value = []
 
     await poll_once(MagicMock())
 
@@ -33,26 +41,30 @@ async def test_poll_once_generates_for_checked_platforms(mock_generator, mock_sh
         "test transcript", "test analysis", "telegram"
     )
     mock_sheets.update_scripts.assert_called_once_with(2, {"telegram": "generated text"})
+    mock_sheets.update_title.assert_called_once_with(2, "SEO Title")
+    mock_sheets.assign_date.assert_called_once_with(2, "2026-04-25 18:00")
     mock_sheets.update_status.assert_called_with(2, "готово")
 
 
 @pytest.mark.asyncio
 @patch("content_bot.tasks.poller.sheets")
 @patch("content_bot.tasks.poller.generator")
-async def test_poll_once_skips_failed_generation(mock_generator, mock_sheets):
+@patch("content_bot.tasks.poller.scheduler")
+async def test_poll_once_skips_failed_generation(mock_scheduler, mock_generator, mock_sheets):
     mock_sheets.get_approved_rows.return_value = [_make_row(telegram=True)]
     mock_generator.generate.return_value = None
 
     await poll_once(MagicMock())
 
-    mock_sheets.update_scripts.assert_called_once_with(2, {})
-    mock_sheets.update_status.assert_called_with(2, "готово")
+    mock_sheets.update_scripts.assert_not_called()
+    mock_sheets.update_status.assert_called_with(2, "ошибка")
 
 
 @pytest.mark.asyncio
 @patch("content_bot.tasks.poller.sheets")
 @patch("content_bot.tasks.poller.generator")
-async def test_poll_once_does_nothing_when_no_approved_rows(mock_generator, mock_sheets):
+@patch("content_bot.tasks.poller.scheduler")
+async def test_poll_once_does_nothing_when_no_approved_rows(mock_scheduler, mock_generator, mock_sheets):
     mock_sheets.get_approved_rows.return_value = []
 
     await poll_once(MagicMock())
@@ -64,11 +76,15 @@ async def test_poll_once_does_nothing_when_no_approved_rows(mock_generator, mock
 @pytest.mark.asyncio
 @patch("content_bot.tasks.poller.sheets")
 @patch("content_bot.tasks.poller.generator")
-async def test_poll_once_generates_multiple_platforms(mock_generator, mock_sheets):
+@patch("content_bot.tasks.poller.scheduler")
+async def test_poll_once_generates_multiple_platforms(mock_scheduler, mock_generator, mock_sheets):
     mock_sheets.get_approved_rows.return_value = [
         _make_row(tiktok=True, telegram=True)
     ]
-    mock_generator.generate.return_value = "script"
+    mock_generator.generate.return_value = _make_generate_result("script")
+    mock_generator.generate_title.return_value = None
+    mock_scheduler.next_publish_date.return_value = "2026-04-25 18:00"
+    mock_sheets.get_all_publish_dates.return_value = []
 
     await poll_once(MagicMock())
 
@@ -76,3 +92,39 @@ async def test_poll_once_generates_multiple_platforms(mock_generator, mock_sheet
     scripts = mock_sheets.update_scripts.call_args[0][1]
     assert "tiktok" in scripts
     assert "telegram" in scripts
+
+
+@pytest.mark.asyncio
+@patch("content_bot.tasks.poller.sheets")
+@patch("content_bot.tasks.poller.generator")
+@patch("content_bot.tasks.poller.scheduler")
+async def test_poll_once_writes_scripts_to_library_sheet(mock_scheduler, mock_generator, mock_sheets):
+    row = _make_row(telegram=True)
+    mock_sheets.get_approved_rows.return_value = [row]
+    mock_generator.generate.return_value = _make_generate_result("Полный текст")
+    mock_generator.generate_title.return_value = "SEO Заголовок"
+    mock_scheduler.next_publish_date.return_value = "2026-04-25 18:00"
+    mock_sheets.get_all_publish_dates.return_value = []
+
+    await poll_once(MagicMock())
+
+    mock_sheets.update_scripts.assert_called_once_with(2, {"telegram": "Полный текст"})
+    mock_sheets.update_title.assert_called_once_with(2, "SEO Заголовок")
+    mock_sheets.assign_date.assert_called_once_with(2, "2026-04-25 18:00")
+
+
+@pytest.mark.asyncio
+@patch("content_bot.tasks.poller.sheets")
+@patch("content_bot.tasks.poller.generator")
+@patch("content_bot.tasks.poller.scheduler")
+async def test_poll_once_does_not_call_append_to_calendar(mock_scheduler, mock_generator, mock_sheets):
+    row = _make_row(telegram=True)
+    mock_sheets.get_approved_rows.return_value = [row]
+    mock_generator.generate.return_value = _make_generate_result("Текст")
+    mock_generator.generate_title.return_value = None
+    mock_scheduler.next_publish_date.return_value = "2026-04-25 18:00"
+    mock_sheets.get_all_publish_dates.return_value = []
+
+    await poll_once(MagicMock())
+
+    assert not mock_sheets.append_to_calendar.called
