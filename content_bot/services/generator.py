@@ -120,3 +120,38 @@ def generate(transcript: str, analysis: str, platform: str) -> dict | None:
     except Exception as e:
         logger.warning("Claude generation failed for %s: %s", platform, e, exc_info=True)
         return None
+
+
+def generate_title(transcript: str, analysis: str) -> str | None:
+    """Generate an SEO-optimized, clickbait title via Claude Haiku.
+
+    Returns title string (max 80 chars) or None on failure.
+    """
+    if not ANTHROPIC_API_KEY:
+        logger.warning("ANTHROPIC_API_KEY not set, skipping title generation")
+        return None
+    if not (transcript or analysis):
+        return None
+    try:
+        client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+        prompt = (
+            "Придумай одно цепляющее SEO-название для поста на основе контента.\n\n"
+            "Требования:\n"
+            "- Стиль YouTube-заголовков: конкретная польза, цифры если есть, интрига\n"
+            "- На русском языке\n"
+            "- Максимум 80 символов\n"
+            "- Без кавычек и лишних символов\n\n"
+            f"Анализ: {analysis[:1000] if analysis else 'нет'}\n"
+            f"Транскрипт: {transcript[:2000] if transcript else 'нет'}\n\n"
+            "Верни только название, одной строкой."
+        )
+        message = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=100,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        title = message.content[0].text.strip().strip('"').strip("'")
+        return title[:80] if title else None
+    except Exception as e:
+        logger.warning("Title generation failed: %s", e)
+        return None
