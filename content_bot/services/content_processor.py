@@ -146,7 +146,7 @@ def _download_audio(url: str, tmp_dir: str) -> str | None:
     import base64
     cmd = [
         "yt-dlp",
-        "--format", "bestaudio[ext=m4a]/bestaudio/best[filesize<25M]",
+        "--format", "bestaudio[ext=m4a][acodec!=none]/bestaudio[acodec!=none]/best[acodec!=none][filesize<25M]/best[filesize<25M]",
         "--output", os.path.join(tmp_dir, "%(id)s.%(ext)s"),
     ]
     if WEBSHARE_PROXY_URL:
