@@ -2,6 +2,7 @@ import json
 import logging
 from dataclasses import dataclass
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import gspread
 
@@ -13,12 +14,18 @@ from content_bot.config import (
 
 logger = logging.getLogger(__name__)
 
+_TZ = ZoneInfo("Asia/Almaty")
+
+
+def _now_almaty():
+    return datetime.now(_TZ)
+
 HEADERS = [
     "ID", "URL", "Платформа", "Название", "Дата",
     "Транскрипт", "Анализ", "Статус",
     "TikTok ✓", "Telegram ✓", "LinkedIn ✓", "YouTube ✓",
     "TikTok скрипт", "Telegram пост", "LinkedIn пост", "YouTube скрипт",
-    "Дата публикации", "В календаре ✓",
+    "Дата публикации", "В календаре ✓", "Опубликовано ✓",
 ]
 
 # Column numbers (1-based, matches gspread update_cell)
@@ -33,6 +40,7 @@ _COL_LINKEDIN_POST = 15
 _COL_YOUTUBE_SCRIPT = 16
 _COL_PUBLISH_DATE = 17
 _COL_CALENDARED = 18
+_COL_PUBLISHED = 19
 
 
 @dataclass
@@ -47,6 +55,13 @@ class ApprovedRow:
     telegram: bool
     linkedin: bool
     youtube: bool
+
+
+@dataclass
+class DuePost:
+    row_num: int
+    title: str
+    telegram_script: str
 
 
 @dataclass
@@ -230,47 +245,84 @@ def mark_calendared(row_num: int) -> None:
         logger.warning("Sheets mark_calendared failed: %s", e, exc_info=True)
 
 
-# ── Content Calendar ───────────────────────────────────────────────────────────
+def get_due_posts() -> list[DuePost]:
+    """Return rows where Telegram ✓, publish date <= now, not yet published."""
+    if not (GOOGLE_SHEETS_ID and GOOGLE_SHEETS_CREDENTIALS):
+        return []
+    try:
+        sheet = _get_sheet()
+        all_rows = sheet.get_all_values()
+        now_str = _now_almaty().strftime("%Y-%m-%d %H:%M")
+        result = []
+        for i, row in enumerate(all_rows[1:], start=2):
+            if len(row) < 14:
+                continue
+            telegram_checked = str(row[_COL_TELEGRAM_CHECK - 1]).upper() == "TRUE"
+            if not telegram_checked:
+                continue
+            publish_date = row[_COL_PUBLISH_DATE - 1].strip() if len(row) >= 17 else ""
+            if not publish_date or publish_date > now_str:
+                continue
+            published = str(row[_COL_PUBLISHED - 1]).upper() if len(row) >= 19 else ""
+            if published == "TRUE":
+                continue
+            telegram_script = row[_COL_TELEGRAM_POST - 1].strip()
+            if not telegram_script:
+                continue
+            title = row[3].strip() if len(row) >= 4 else ""
+            result.append(DuePost(row_num=i, title=title, telegram_script=telegram_script))
+        return result
+    except Exception as e:
+        logger.warning("Sheets get_due_posts failed: %s", e, exc_info=True)
+        return []
 
-_CALENDAR_HEADERS = ["Дата", "Платформа", "Формат", "Хук", "Контент", "Статус", "Источник URL", "Файл"]
+
+def get_all_publish_dates() -> list[str]:
+    """Return all non-empty 'Дата публикации' values from Library Sheet."""
+    if not (GOOGLE_SHEETS_ID and GOOGLE_SHEETS_CREDENTIALS):
+        return []
+    try:
+        sheet = _get_sheet()
+        all_rows = sheet.get_all_values()
+        return [
+            row[_COL_PUBLISH_DATE - 1].strip()
+            for row in all_rows[1:]
+            if len(row) >= 17 and row[_COL_PUBLISH_DATE - 1].strip()
+        ]
+    except Exception as e:
+        logger.warning("Sheets get_all_publish_dates failed: %s", e, exc_info=True)
+        return []
 
 
-def _get_calendar_sheet():
-    creds = json.loads(GOOGLE_SHEETS_CREDENTIALS)
-    client = gspread.service_account_from_dict(creds)
-    return client.open_by_key(CONTENT_CALENDAR_SHEETS_ID).sheet1
-
-
-def append_to_calendar(
-    platform_label: str,
-    format_label: str,
-    hook: str,
-    content: str,
-    source_url: str,
-) -> None:
-    """Append a generated post to the Content Calendar sheet."""
-    if not GOOGLE_SHEETS_CREDENTIALS:
-        logger.warning("Calendar append skipped: credentials not configured")
+def assign_date(row_num: int, date_str: str) -> None:
+    """Write publish date to 'Дата публикации' column."""
+    if not (GOOGLE_SHEETS_ID and GOOGLE_SHEETS_CREDENTIALS):
         return
     try:
-        sheet = _get_calendar_sheet()
-        col_a = sheet.col_values(1)
-        last_row = sum(1 for v in col_a if v and v.strip())
-        if last_row == 0:
-            sheet.update("A1", [_CALENDAR_HEADERS])
-            last_row = 1
-        next_row = last_row + 1
-        row_data = [
-            datetime.now().strftime("%Y-%m-%d"),
-            platform_label,
-            format_label,
-            hook,
-            content,
-            "черновик",
-            source_url,
-            "",
-        ]
-        sheet.update(f"A{next_row}", [row_data])
-        logger.info("Calendar: appended %s row at %d", platform_label, next_row)
+        sheet = _get_sheet()
+        sheet.update_cell(row_num, _COL_PUBLISH_DATE, date_str)
     except Exception as e:
-        logger.warning("Calendar append failed: %s", e, exc_info=True)
+        logger.warning("Sheets assign_date failed: %s", e, exc_info=True)
+
+
+def update_title(row_num: int, title: str) -> None:
+    """Write generated SEO title to 'Название' column (col 4)."""
+    if not (GOOGLE_SHEETS_ID and GOOGLE_SHEETS_CREDENTIALS):
+        return
+    try:
+        sheet = _get_sheet()
+        sheet.update_cell(row_num, 4, title)
+    except Exception as e:
+        logger.warning("Sheets update_title failed: %s", e, exc_info=True)
+
+
+def mark_published(row_num: int) -> None:
+    """Set 'Опубликовано ✓' = TRUE and status = 'опубликовано'."""
+    if not (GOOGLE_SHEETS_ID and GOOGLE_SHEETS_CREDENTIALS):
+        return
+    try:
+        sheet = _get_sheet()
+        sheet.update_cell(row_num, _COL_PUBLISHED, True)
+        sheet.update_cell(row_num, _COL_STATUS, "опубликовано")
+    except Exception as e:
+        logger.warning("Sheets mark_published failed: %s", e, exc_info=True)
