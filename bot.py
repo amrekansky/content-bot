@@ -7,6 +7,7 @@ from content_bot.handlers.content_ingest import handle_message
 from content_bot.tasks.poller import poll_once
 from content_bot.tasks.calendar_poller import poll_calendar
 from content_bot.tasks.publisher import publish_due_posts
+from content_bot.tasks.doc_sync import sync_docs_to_sheets
 
 logging.basicConfig(
     format="%(asctime)s — %(name)s — %(levelname)s — %(message)s",
@@ -34,6 +35,10 @@ def main() -> None:
     # Module 4: publish due Telegram posts with image card
     app.job_queue.run_repeating(publish_due_posts, interval=60, first=30)
     logger.info("Publisher scheduled: every 60s, first run in 30s")
+
+    # Module 5: sync edited Google Docs back to Sheets
+    app.job_queue.run_repeating(sync_docs_to_sheets, interval=300, first=120)
+    logger.info("DocSync scheduled: every 300s, first run in 120s")
 
     logger.info("Bot started — polling")
     app.run_polling(drop_pending_updates=True)

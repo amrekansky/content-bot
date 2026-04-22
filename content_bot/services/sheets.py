@@ -25,7 +25,7 @@ HEADERS = [
     "Транскрипт", "Анализ", "Статус",
     "TikTok ✓", "Telegram ✓", "LinkedIn ✓", "YouTube ✓",
     "TikTok скрипт", "Telegram пост", "LinkedIn пост", "YouTube скрипт",
-    "Дата публикации", "В календаре ✓", "Опубликовано ✓",
+    "Дата публикации", "В календаре ✓", "Опубликовано ✓", "Doc IDs",
 ]
 
 # Column numbers (1-based, matches gspread update_cell)
@@ -41,6 +41,14 @@ _COL_YOUTUBE_SCRIPT = 16
 _COL_PUBLISH_DATE = 17
 _COL_CALENDARED = 18
 _COL_PUBLISHED = 19
+_COL_DOC_IDS = 20
+
+_PLATFORM_COL = {
+    "tiktok": _COL_TIKTOK_SCRIPT,
+    "telegram": _COL_TELEGRAM_POST,
+    "linkedin": _COL_LINKEDIN_POST,
+    "youtube": _COL_YOUTUBE_SCRIPT,
+}
 
 
 @dataclass
@@ -314,6 +322,72 @@ def update_title(row_num: int, title: str) -> None:
         sheet.update_cell(row_num, 4, title)
     except Exception as e:
         logger.warning("Sheets update_title failed: %s", e, exc_info=True)
+
+
+@dataclass
+class DocSyncRow:
+    row_num: int
+    doc_ids: dict  # platform -> doc_id
+    current_scripts: dict  # platform -> current text in Sheets
+
+
+def update_doc_ids(row_num: int, doc_ids: dict) -> None:
+    """Write doc_ids JSON to col 20."""
+    if not (GOOGLE_SHEETS_ID and GOOGLE_SHEETS_CREDENTIALS):
+        return
+    try:
+        sheet = _get_sheet()
+        sheet.update_cell(row_num, _COL_DOC_IDS, json.dumps(doc_ids, ensure_ascii=False))
+    except Exception as e:
+        logger.warning("Sheets update_doc_ids failed: %s", e, exc_info=True)
+
+
+def update_script(row_num: int, platform: str, text: str) -> None:
+    """Update a single platform script column."""
+    if not (GOOGLE_SHEETS_ID and GOOGLE_SHEETS_CREDENTIALS):
+        return
+    col = _PLATFORM_COL.get(platform)
+    if not col:
+        return
+    try:
+        sheet = _get_sheet()
+        sheet.update_cell(row_num, col, text)
+    except Exception as e:
+        logger.warning("Sheets update_script failed: %s", e, exc_info=True)
+
+
+def get_rows_for_doc_sync() -> list[DocSyncRow]:
+    """Return rows that have doc_ids and are not yet published."""
+    if not (GOOGLE_SHEETS_ID and GOOGLE_SHEETS_CREDENTIALS):
+        return []
+    try:
+        sheet = _get_sheet()
+        all_rows = sheet.get_all_values()
+        result = []
+        for i, row in enumerate(all_rows[1:], start=2):
+            if len(row) < _COL_DOC_IDS:
+                continue
+            doc_ids_raw = row[_COL_DOC_IDS - 1].strip()
+            if not doc_ids_raw:
+                continue
+            published = str(row[_COL_PUBLISHED - 1]).upper() if len(row) >= 19 else ""
+            if published == "TRUE":
+                continue
+            try:
+                doc_ids = json.loads(doc_ids_raw)
+            except json.JSONDecodeError:
+                continue
+            current_scripts = {
+                "tiktok": row[_COL_TIKTOK_SCRIPT - 1] if len(row) >= 13 else "",
+                "telegram": row[_COL_TELEGRAM_POST - 1] if len(row) >= 14 else "",
+                "linkedin": row[_COL_LINKEDIN_POST - 1] if len(row) >= 15 else "",
+                "youtube": row[_COL_YOUTUBE_SCRIPT - 1] if len(row) >= 16 else "",
+            }
+            result.append(DocSyncRow(row_num=i, doc_ids=doc_ids, current_scripts=current_scripts))
+        return result
+    except Exception as e:
+        logger.warning("Sheets get_rows_for_doc_sync failed: %s", e, exc_info=True)
+        return []
 
 
 def mark_published(row_num: int) -> None:

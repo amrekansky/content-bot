@@ -1,7 +1,8 @@
 import logging
+from datetime import datetime
 from telegram.ext import ContextTypes
 
-from content_bot.services import sheets, generator, scheduler
+from content_bot.services import sheets, generator, scheduler, drive_docs
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +44,19 @@ async def poll_once(context: ContextTypes.DEFAULT_TYPE) -> None:
                 existing_dates = sheets.get_all_publish_dates()
                 pub_date = scheduler.next_publish_date(existing_dates)
                 sheets.assign_date(row.row_num, pub_date)
+
+                doc_title = f"{title or row.url} — {datetime.now().strftime('%Y-%m-%d')}"
+                doc_ids = {}
+                for platform, content in scripts.items():
+                    doc_id = drive_docs.create_post_doc(
+                        title=f"{platform.capitalize()} — {doc_title}",
+                        content=content,
+                        platform=platform,
+                    )
+                    if doc_id:
+                        doc_ids[platform] = doc_id
+                if doc_ids:
+                    sheets.update_doc_ids(row.row_num, doc_ids)
 
             sheets.update_status(row.row_num, "готово" if scripts else "ошибка")
             logger.info("Poller: row %d done, platforms: %s", row.row_num, list(scripts.keys()))

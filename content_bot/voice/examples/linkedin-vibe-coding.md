@@ -1,4 +1,4 @@
-<!-- LinkedIn example — English, lowercase, personal voice, no headers -->
+<!-- LinkedIn example 1 — English, lowercase, personal voice, no headers -->
 
 i shipped something this weekend. alone
 six months ago i'd have needed a developer for this
