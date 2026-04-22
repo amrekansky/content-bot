@@ -64,6 +64,7 @@ Hook: first 1-2 lines must stop the scroll — a surprising fact, a personal con
 Structure: hook → personal angle or story → real mechanics or insight → broader point → end with a question or thought that invites comments and discussion.
 Length: 300-500 words. No headers, no bullet points. Short paragraphs.
 Tone: grounded, non-hype, direct. First-person experience over generic advice.
+Punctuation: no long dashes (—) as sentence breaks, no colons for dramatic pauses. Write naturally with periods and commas.
 Engagement: it's ok to ask readers a question or invite them to share their perspective in the comments.
 
 Analysis: {analysis}
