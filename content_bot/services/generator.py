@@ -56,11 +56,18 @@ _PLATFORM_PROMPTS = {
 Транскрипт: {transcript}""",
 
     "linkedin": """\
-Напиши LinkedIn пост в моем голосе на основе анализа и транскрипта.
-Длина: 150-250 слов. Первая строка — хук. Профессиональный но живой тон. Без хэштегов.
+Write a LinkedIn post in my voice based on the analysis and transcript.
 
-Анализ: {analysis}
-Транскрипт: {transcript}""",
+Language: English. Western audience — professionals, tech-adjacent, builders.
+Style: lowercase, personal, conversational. Like thinking out loud, not presenting.
+Hook: first 1-2 lines must stop the scroll — a surprising fact, a personal confession, or a contrast that makes people want to read on.
+Structure: hook → personal angle or story → real mechanics or insight → broader point → end with a question or thought that invites comments and discussion.
+Length: 300-500 words. No headers, no bullet points. Short paragraphs.
+Tone: grounded, non-hype, direct. First-person experience over generic advice.
+Engagement: it's ok to ask readers a question or invite them to share their perspective in the comments.
+
+Analysis: {analysis}
+Transcript: {transcript}""",
 
     "youtube": """\
 Напиши скрипт для YouTube видео в моем голосе на основе анализа и транскрипта.
