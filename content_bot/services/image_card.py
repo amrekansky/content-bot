@@ -14,10 +14,10 @@ _TEXT = (230, 237, 243)
 _ACCENT = (88, 166, 255)
 _DIM = (110, 118, 129)
 _PADDING = 80
-_FONT_SIZE_HOOK = 52
+_FONT_SIZE_HOOK = 36
 _FONT_SIZE_WATERMARK = 28
-_LINE_HEIGHT = 70
-_MAX_CHARS_PER_LINE = 28
+_LINE_HEIGHT = 52
+_MAX_CHARS_PER_LINE = 38
 
 
 def _load_fonts() -> tuple[ImageFont.FreeTypeFont, ImageFont.FreeTypeFont]:
@@ -40,9 +40,12 @@ def _load_fonts() -> tuple[ImageFont.FreeTypeFont, ImageFont.FreeTypeFont]:
 def _extract_hook(script_text: str) -> str:
     for para in script_text.split("\n"):
         para = para.strip()
-        if para:
-            return para[:200]
-    return script_text[:200].strip()
+        if para and not para.startswith("#"):
+            if len(para) <= 280:
+                return para
+            cut = para[:280].rfind(".")
+            return para[: cut + 1] if cut > 0 else para[:280]
+    return script_text[:280].strip()
 
 
 def generate_card(script_text: str) -> bytes:
