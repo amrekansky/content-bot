@@ -9,4 +9,4 @@ build/
 .venv/
 venv/
 /tmp/
-assets/fonts/*.ttf
+assets/fonts/FiraCode-*.ttf

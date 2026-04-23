@@ -21,14 +21,20 @@ _MAX_CHARS_PER_LINE = 28
 
 
 def _load_fonts() -> tuple[ImageFont.FreeTypeFont, ImageFont.FreeTypeFont]:
-    try:
-        bold = ImageFont.truetype(str(_FONT_DIR / "FiraCode-Bold.ttf"), _FONT_SIZE_HOOK)
-        regular = ImageFont.truetype(str(_FONT_DIR / "FiraCode-Regular.ttf"), _FONT_SIZE_WATERMARK)
-        return bold, regular
-    except Exception:
-        logger.warning("FiraCode fonts not found, using Pillow default")
-        default = ImageFont.load_default()
-        return default, default
+    candidates = [
+        (_FONT_DIR / "Inter-Bold.ttf", _FONT_DIR / "Inter-Regular.ttf"),
+        (_FONT_DIR / "FiraCode-Bold.ttf", _FONT_DIR / "FiraCode-Regular.ttf"),
+    ]
+    for bold_path, regular_path in candidates:
+        try:
+            bold = ImageFont.truetype(str(bold_path), _FONT_SIZE_HOOK)
+            regular = ImageFont.truetype(str(regular_path), _FONT_SIZE_WATERMARK)
+            return bold, regular
+        except Exception:
+            continue
+    logger.warning("No bundled fonts found, using Pillow default")
+    default = ImageFont.load_default()
+    return default, default
 
 
 def _extract_hook(script_text: str) -> str:
