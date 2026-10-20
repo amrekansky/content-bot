@@ -10,3 +10,6 @@ build/
 venv/
 /tmp/
 assets/fonts/FiraCode-*.ttf
+
+# Внутренние PM-заметки — не публикуем
+.pm/

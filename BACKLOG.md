@@ -1,4 +1,5 @@
 # Content Bot — Backlog
+_Updated: 2026-05-18_
 
 ## Открытые задачи
 

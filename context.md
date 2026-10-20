@@ -1,5 +1,29 @@
 # Context — content-bot
-_Updated: 2026-04-19_
+_Updated: 2026-05-18_
+
+## Session 2026-05-18
+### Progress
+- headless-pm v0.7.7 installed: /pm-save skill now available
+- pm-save smoke test run in this workspace (first real test)
+- Opening Dashboard verified in pm skill code — ASCII kanban (DISCOVERY→DEFINE→BUILD→SHIP) reads .pm/STATE.md + artifacts/
+- Agent Communication Protocol confirmed in all 24 agents (▶ opening / ✓ closing blocks)
+- orchestrator.log format will shift from timestamp lines to markdown blocks after this save
+
+### Decisions
+- pm-save uses `git add .pm/` to commit situation.md automatically (no manual update needed)
+- orchestrator.log: markdown blocks prepended at top (grep-friendly)
+- pm-save named in pm-* namespace (not /save) for global product consistency
+
+### Next Steps
+1. Run `/pm` from content-bot/ to test Opening Dashboard + pm-radar live
+2. Run pm-hypothesis or pm-sprint to test Agent Communication Protocol blocks
+3. Verify Module 6 PRD scope — prd.md exists, check if sprint planning is next
+
+### Open Questions
+- Instagram ingest: throwaway account ready? INSTAGRAM_USERNAME/PASSWORD set on Render?
+- YouTube transcript: proxy validation done on 5 real URLs?
+
+---
 
 ## Сессия 2026-04-19
 ### Прогресс
